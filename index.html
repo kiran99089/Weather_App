@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aether • Modern Global Weather</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background Atmosphere Ambient Elements -->
+    <div class="bg-glow blob-1"></div>
+    <div class="bg-glow blob-2"></div>
+
+    <div class="app-wrapper">
+        <!-- Top Navbar Header -->
+        <header class="navbar">
+            <div class="brand">
+                <div class="brand-icon">
+                    <i class="bi bi-cloud-sun-fill"></i>
+                </div>
+                <div class="brand-text">
+                    <span class="app-name">Aether</span>
+                    <span class="app-tagline">Realtime Global Weather</span>
+                </div>
+            </div>
+
+            <div class="nav-controls">
+                <div class="live-status-pill" id="liveStatusPill">
+                    <span class="live-dot"></span> LIVE
+                </div>
+                <button class="refresh-btn" id="refreshBtn" title="Sync Realtime Weather Data">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+                <div class="local-clock" id="localClock">
+                    <i class="bi bi-clock"></i> <span id="clockTime">--:--</span>
+                </div>
+                <div class="unit-toggle" id="unitToggle" title="Toggle °C / °F">
+                    <button class="unit-btn active" id="btnC">°C</button>
+                    <button class="unit-btn" id="btnF">°F</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Search & Command Section -->
+        <section class="search-section">
+            <div class="search-container">
+                <div class="search-box">
+                    <i class="bi bi-search search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Search any city, village, town, or district worldwide..." autocomplete="off">
+                    <button id="locationBtn" class="action-btn location-btn" title="Use My GPS Location">
+                        <i class="bi bi-crosshair"></i>
+                    </button>
+                    <button id="searchBtn" class="action-btn submit-btn" title="Search Weather">
+                        <i class="bi bi-arrow-right"></i>
+                    </button>
+                </div>
+                <!-- Autocomplete Suggestions -->
+                <ul class="suggestions-list" id="suggestionsBox"></ul>
+            </div>
+
+            <!-- Quick City Chips -->
+            <div class="quick-cities">
+                <span class="quick-label"><i class="bi bi-fire"></i> Popular:</span>
+                <div class="chips-container">
+                    <button class="city-chip" data-city="London">London</button>
+                    <button class="city-chip" data-city="New York">New York</button>
+                    <button class="city-chip" data-city="Tokyo">Tokyo</button>
+                    <button class="city-chip" data-city="Paris">Paris</button>
+                    <button class="city-chip" data-city="Mumbai">Mumbai</button>
+                    <button class="city-chip" data-city="Sydney">Sydney</button>
+                    <button class="city-chip" data-city="Dubai">Dubai</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loading Skeleton / Spinner State -->
+        <div class="loader-overlay" id="loader">
+            <div class="spinner-ring"></div>
+            <p class="loader-text">Resolving Location & Realtime Weather Data...</p>
+        </div>
+
+        <!-- Error State Card -->
+        <div class="error-card" id="errorDiv">
+            <div class="error-icon"><i class="bi bi-exclamation-octagon-fill"></i></div>
+            <div class="error-body">
+                <h3>Location Not Found</h3>
+                <p id="errorMessage">We couldn't retrieve weather data for this query. Please check the spelling or search another city/village.</p>
+            </div>
+        </div>
+
+        <!-- Main Dashboard Content -->
+        <main class="dashboard-content" id="dashboardContent">
+            <!-- Hero Weather Card -->
+            <div class="hero-weather-card">
+                <div class="hero-header">
+                    <div class="location-badge">
+                        <i class="bi bi-geo-alt-fill"></i>
+                        <div>
+                            <h1 id="cityName" class="city-title">--</h1>
+                            <p id="locationSubtitle" class="location-subtitle">--</p>
+                        </div>
+                    </div>
+                    <div class="date-badge" id="currentDateBadge">
+                        Today
+                    </div>
+                </div>
+
+                <div class="hero-body">
+                    <div class="weather-visual">
+                        <img src="assets/cloud.png" id="weatherIcon" class="hero-icon" alt="Weather Condition">
+                    </div>
+
+                    <div class="temperature-display">
+                        <div class="temp-main">
+                            <span id="temperatureVal">--</span><span class="temp-unit" id="activeUnitLabel">°C</span>
+                        </div>
+                        <div class="temp-condition" id="description">--</div>
+                    </div>
+                </div>
+
+                <div class="hero-footer">
+                    <div class="metric-pill">
+                        <i class="bi bi-thermometer-half"></i>
+                        <span>Feels like: <strong id="feelsLikeVal">--°C</strong></span>
+                    </div>
+                    <div class="metric-pill">
+                        <i class="bi bi-arrow-down-up"></i>
+                        <span>H: <strong id="tempMaxVal">--°C</strong> • L: <strong id="tempMinVal">--°C</strong></span>
+                    </div>
+                    <div class="metric-pill">
+                        <i class="bi bi-sun"></i>
+                        <span>Sunrise: <strong id="sunriseVal">--:--</strong></span>
+                    </div>
+                    <div class="metric-pill">
+                        <i class="bi bi-moon-stars"></i>
+                        <span>Sunset: <strong id="sunsetVal">--:--</strong></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hourly Forecast Slider Section -->
+            <section class="forecast-section">
+                <div class="section-title">
+                    <i class="bi bi-clock-history"></i> Realtime Hourly Forecast (24h)
+                </div>
+                <div class="hourly-forecast-container" id="hourlyForecastContainer">
+                    <!-- Dynamic Hourly Cards -->
+                </div>
+            </section>
+
+            <!-- 5-Day Extended Forecast & Key Highlights Grid -->
+            <div class="grid-two-columns">
+                <!-- 5-Day Forecast Panel -->
+                <section class="forecast-section daily-section">
+                    <div class="section-title">
+                        <i class="bi bi-calendar3"></i> 5-Day Forecast
+                    </div>
+                    <div class="daily-forecast-list" id="dailyForecastContainer">
+                        <!-- Dynamic Daily Rows -->
+                    </div>
+                </section>
+
+                <!-- Detailed Weather Highlights Panel -->
+                <section class="highlights-section">
+                    <div class="section-title">
+                        <i class="bi bi-grid-fill"></i> Live Metrics Highlights
+                    </div>
+                    <div class="highlights-grid">
+                        <!-- Humidity Card -->
+                        <div class="highlight-card">
+                            <div class="card-header">
+                                <span>Humidity</span>
+                                <i class="bi bi-droplet-fill highlight-icon"></i>
+                            </div>
+                            <div class="card-value" id="humidityVal">--%</div>
+                            <div class="card-footer" id="humidityDesc">Normal levels</div>
+                        </div>
+
+                        <!-- Wind Card -->
+                        <div class="highlight-card">
+                            <div class="card-header">
+                                <span>Wind & Direction</span>
+                                <i class="bi bi-wind highlight-icon"></i>
+                            </div>
+                            <div class="card-value" id="windVal">-- Km/h</div>
+                            <div class="card-footer" id="windDesc">Gentle breeze</div>
+                        </div>
+
+                        <!-- Air Pressure Card -->
+                        <div class="highlight-card">
+                            <div class="card-header">
+                                <span>Air Pressure</span>
+                                <i class="bi bi-speedometer highlight-icon"></i>
+                            </div>
+                            <div class="card-value" id="pressureVal">-- hPa</div>
+                            <div class="card-footer">Atmospheric pressure</div>
+                        </div>
+
+                        <!-- Visibility Card -->
+                        <div class="highlight-card">
+                            <div class="card-header">
+                                <span>Visibility</span>
+                                <i class="bi bi-eye-fill highlight-icon"></i>
+                            </div>
+                            <div class="card-value" id="visibilityVal">-- Km</div>
+                            <div class="card-footer" id="visibilityDesc">Clear view</div>
+                        </div>
+
+                        <!-- UV Index Card -->
+                        <div class="highlight-card">
+                            <div class="card-header">
+                                <span>UV Index</span>
+                                <i class="bi bi-brightness-high-fill highlight-icon"></i>
+                            </div>
+                            <div class="card-value" id="uvVal">--</div>
+                            <div class="card-footer" id="uvDesc">Low UV Risk</div>
+                        </div>
+
+                        <!-- Rain Probability Card -->
+                        <div class="highlight-card">
+                            <div class="card-header">
+                                <span>Rain Chance</span>
+                                <i class="bi bi-cloud-rain-fill highlight-icon"></i>
+                            </div>
+                            <div class="card-value" id="rainVal">--%</div>
+                            <div class="card-footer" id="rainDesc">Low precipitation</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>Powered by Real-Time Multi-Source Global Weather System • High Accuracy Village & City Search Engine</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
