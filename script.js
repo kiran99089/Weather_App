@@ -7,7 +7,7 @@ let currentWeatherData = null;
 let currentForecastData = null;
 let currentForecastRaw = null;
 let tempChartInstance = null;
-let lastLocationRef = { query: DEFAULT_CITY, lat: null, lon: null, title: null, subtitle: null };
+let lastLocationRef = { query: null, lat: null, lon: null, title: null, subtitle: null };
 let debounceTimer = null;
 let autoSyncInterval = null;
 
@@ -64,7 +64,7 @@ function hideSplash() {
     const splash = document.getElementById('splash');
     if (!splash) return;
     splash.classList.add('hide');
-    setTimeout(() => splash.remove(), 900);
+    setTimeout(() => { splash.remove(); maybeShowLocationPopup(); }, 900);
 }
 function markFirstLoad() {
     firstLoadDone = true;
@@ -73,52 +73,75 @@ function markFirstLoad() {
 
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { splashTimeDone = true; hideSplash(); }, 2400);
-   
+    // network సమస్య ఉన్నా 8 సెకన్లకు splash తప్పకుండా తీసేస్తాం
     setTimeout(() => { splashTimeDone = true; firstLoadDone = true; hideSplash(); }, 8000);
     startLiveClock();
     setDateBadge();
     setupAutoSync();
 
-    // పాత saved location ఉంటే clear చేస్తాం. ఎప్పుడూ default city తో మొదలవుతుంది.
+    // పాత saved location ఉంటే clear చేస్తాం
     localStorage.removeItem('lastSearchedLocation');
-    searchWeather(DEFAULT_CITY);    // Auto-detect user location on startup
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                const lat = position.coords.latitude;
-                const lon = position.coords.longitude;
-                try {
-                    const revRes = await fetch(
-                        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`
-                    );
-                    const revData = await revRes.json();
-                    const addr = revData.address || {};
-                    const name = addr.village || addr.town || addr.hamlet || addr.suburb || addr.city || 'Your Location';
-                    const subtitle = [addr.county || addr.state_district || addr.state, addr.country].filter(Boolean).join(', ');
-                    fetchRealtimeWeather(lat, lon, name, subtitle);
-                } catch (e) {
-                    fetchRealtimeWeather(lat, lon, 'Your Location', 'GPS Coordinates');
-                }
-            },
-                      () => {
-                // GPS denied — empty state 
-                showEmptyState();
-                function showEmptyState() {
+    initLocation();
+});
+
+// ===== Startup Location Flow =====
+const emptyState = document.getElementById('emptyState');
+
+function showEmptyState() {
     markFirstLoad();
     loader.classList.remove('show');
     errorDiv.classList.remove('show');
     dashboardContent.classList.add('hide');
-    
-    const emptyDiv = document.getElementById('emptyState');
-    if (emptyDiv) emptyDiv.style.display = 'flex';
+    if (emptyState) emptyState.style.display = 'flex';
 }
-            },
-            { timeout: 6000 }
-        );
-    } else {
+
+function hideEmptyState() {
+    if (emptyState) emptyState.style.display = 'none';
+}
+
+// GPS తీసుకుని weather చూపిస్తుంది. విఫలమైతే empty state చూపిస్తుంది.
+function requestUserLocation() {
+    showLoader();
+    navigator.geolocation.getCurrentPosition(
+        async (position) => {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            try {
+                const revRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`);
+                const revData = await revRes.json();
+                const addr = revData.address || {};
+                const name = addr.village || addr.town || addr.hamlet || addr.suburb || addr.city || 'Your Location';
+                const subtitle = [addr.county || addr.state_district || addr.state, addr.country].filter(Boolean).join(', ');
+                fetchRealtimeWeather(lat, lon, name, subtitle);
+            } catch (e) {
+                fetchRealtimeWeather(lat, lon, 'Your Location', 'GPS Coordinates');
+            }
+        },
+        () => showEmptyState(),   // GPS denied / timeout
+        { timeout: 10000 }
+    );
+}
+
+async function initLocation() {
+    if (!navigator.geolocation) {
         searchWeather(DEFAULT_CITY);
+        return;
     }
-});
+
+    // Permission స్థితి చూద్దాం
+    let state = 'prompt';
+    try {
+        if (navigator.permissions && navigator.permissions.query) {
+            state = (await navigator.permissions.query({ name: 'geolocation' })).state;
+        }
+    } catch (e) { /* కొన్ని browsers లో సపోర్ట్ లేదు */ }
+
+    if (state === 'granted') {
+        requestUserLocation();       // ఇప్పటికే అనుమతి ఉంది
+    } else {
+        showEmptyState();            // popup splash తర్వాత వస్తుంది
+    }
+}
 
 // Live Clock
 function startLiveClock() {
@@ -611,6 +634,7 @@ function renderTempGraph() {
 
 // UI State Helpers
 function showLoader() {
+    hideEmptyState();
     loader.classList.add('show');
     errorDiv.classList.remove('show');
     dashboardContent.classList.add('hide');
@@ -618,6 +642,7 @@ function showLoader() {
 
 function showDashboard() {
     markFirstLoad();
+    hideEmptyState();
     loader.classList.remove('show');
     errorDiv.classList.remove('show');
     dashboardContent.classList.remove('hide');
@@ -625,8 +650,48 @@ function showDashboard() {
 
 function showError(msg) {
     markFirstLoad();
+    hideEmptyState();
     loader.classList.remove('show');
     dashboardContent.classList.add('hide');
     errorMessage.innerText = msg;
     errorDiv.classList.add('show');
 }
+
+// ===== Location Permission Popup =====
+const locModal = document.getElementById('locModal');
+const allowLocBtn = document.getElementById('allowLocBtn');
+const skipLocBtn = document.getElementById('skipLocBtn');
+
+function openLocPopup() {
+    locModal.classList.add('show');
+    locModal.setAttribute('aria-hidden', 'false');
+}
+function closeLocPopup() {
+    locModal.classList.remove('show');
+    locModal.setAttribute('aria-hidden', 'true');
+}
+
+async function maybeShowLocationPopup() {
+    if (!navigator.geolocation) return;
+
+    // Permission ఇప్పటికే ఇచ్చి/తిరస్కరించి ఉంటే popup అవసరం లేదు
+    try {
+        if (navigator.permissions && navigator.permissions.query) {
+            const status = await navigator.permissions.query({ name: 'geolocation' });
+            if (status.state !== 'prompt') return;
+        }
+    } catch (e) { /* సపోర్ట్ లేకపోతే popup చూపిస్తాం */ }
+
+    // ఇప్పటికే weather చూపిస్తుంటే popup వద్దు
+    if (!dashboardContent.classList.contains('hide')) return;
+
+    openLocPopup();
+}
+
+allowLocBtn.addEventListener('click', () => {
+    closeLocPopup();
+    requestUserLocation();   // browser permission prompt వస్తుంది
+});
+skipLocBtn.addEventListener('click', closeLocPopup);
+locModal.addEventListener('click', (e) => { if (e.target === locModal) closeLocPopup(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLocPopup(); });
