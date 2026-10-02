@@ -56,7 +56,7 @@ const clockTime = document.getElementById('clockTime');
 const cityChips = document.querySelectorAll('.city-chip');
 
 // Initialize Application
-// Splash Animation: కనీసం 2.4 సెకన్లు చూపిస్తాం, డేటా వచ్చాక hide అవుతుంది
+// Splash Animation: 
 let splashTimeDone = false;
 let firstLoadDone = false;
 function hideSplash() {
@@ -73,7 +73,7 @@ function markFirstLoad() {
 
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { splashTimeDone = true; hideSplash(); }, 2400);
-    // network సమస్య ఉన్నా 8 సెకన్లకు splash తప్పకుండా తీసేస్తాం
+   
     setTimeout(() => { splashTimeDone = true; firstLoadDone = true; hideSplash(); }, 8000);
     startLiveClock();
     setDateBadge();
@@ -81,7 +81,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // పాత saved location ఉంటే clear చేస్తాం. ఎప్పుడూ default city తో మొదలవుతుంది.
     localStorage.removeItem('lastSearchedLocation');
-    searchWeather(DEFAULT_CITY);
+    searchWeather(DEFAULT_CITY);    // Auto-detect user location on startup
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                try {
+                    const revRes = await fetch(
+                        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`
+                    );
+                    const revData = await revRes.json();
+                    const addr = revData.address || {};
+                    const name = addr.village || addr.town || addr.hamlet || addr.suburb || addr.city || 'Your Location';
+                    const subtitle = [addr.county || addr.state_district || addr.state, addr.country].filter(Boolean).join(', ');
+                    fetchRealtimeWeather(lat, lon, name, subtitle);
+                } catch (e) {
+                    fetchRealtimeWeather(lat, lon, 'Your Location', 'GPS Coordinates');
+                }
+            },
+                      () => {
+                // GPS denied — empty state 
+                showEmptyState();
+                function showEmptyState() {
+    markFirstLoad();
+    loader.classList.remove('show');
+    errorDiv.classList.remove('show');
+    dashboardContent.classList.add('hide');
+    
+    const emptyDiv = document.getElementById('emptyState');
+    if (emptyDiv) emptyDiv.style.display = 'flex';
+}
+            },
+            { timeout: 6000 }
+        );
+    } else {
+        searchWeather(DEFAULT_CITY);
+    }
 });
 
 // Live Clock
